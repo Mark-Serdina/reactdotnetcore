@@ -1,0 +1,263 @@
+dir for directories
+
+INSTALL DOTNET SDK AND RUNTIME
+
+
+
+
+STEPS
+CREATE A PROJECT FOLDER
+
+IN COMMAND LINE
+CD INTO THE PROJECT FOLDER
+
+TO GET .NET VERSION TYPE
+dotnet --info
+
+TO SEE TEMPLATES 
+dotnet -h
+
+TO SEE DOTNET OPTIONS TYPE
+dotnet new -h
+
+TO CREATE A SOLUTION (.sln) FILE TYPE
+dotnet new sln
+
+[FOLDERS INSIDE PROJECT FOLDER]
+TO CREATE A DOMAIN CLASS FOR ENTITY, http request TYPE
+dotnet new classlib -n Domain
+
+TO CREATE A APPLICATION CLASS FOR LOGIC TYPE
+dotnet new classlib -n Application
+
+TO CREATE A PERSISTENCE CLASS TYPE
+dotnet new classlib -n Persistence
+
+TO CREATE A WEBAPI CLASS TYPE
+dotnet new webapi -n API
+
+
+[Add one or more projects to a solution file]
+dotnet sln add Domain/
+
+dotnet sln add Application/
+
+dotnet sln add Persistence/
+
+dotnet sln add API/
+
+[Domain is the center of the project, does not depend to any dependency]
+[Application must add reference to the domain project]
+[This uses the csproj file to add the reference to it]
+cd Application
+dotnet add reference ../Domain/
+
+[Application must add reference to the persistence project]
+[As the application is responsible for quierying the database]
+dotnet add reference ../Persistence/
+
+
+[API must add reference to the Application project]
+cd ..
+cd API
+dotnet add reference ../Application/
+
+
+[Persistence project will depend on the Domain project]
+[Because the domain will have the entities that our persistencies will have to work with]
+cd ..
+cd Persistence
+dotnet add reference ../Domain/
+cd ..
+
+[Open project solution in vscode]
+
+
+*****
+*****
+
+
+[Open terminal in vscode]
+TYPE
+dotnet run -p API/
+[To set API as a start up project and will now run the application on the http://localhost:5000]
+
+http://localhost:5000/api/values
+
+http://localhost:5000/api/values/1
+
+PASTE THIS CODE UNDER API PROJECT > CONTROLLERS > ValuesController.cs
+
+*************************************************************************
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
+
+namespace DatingApp.API.Controllers
+{
+    [Route("api/[controller]")]
+    [ApiController]
+    public class ValuesController : ControllerBase
+    {
+        // GET api/values
+        [HttpGet]
+        public ActionResult<IEnumerable<string>> Get()
+        {
+            return new string[] { "value1", "value2" };
+        }
+
+        // GET api/values/5
+        [HttpGet("{id}")]
+        public ActionResult<string> Get(int id)
+        {
+            return "value";
+        }
+
+        // POST api/values
+        [HttpPost]
+        public void Post([FromBody] string value)
+        {
+        }
+
+        // PUT api/values/5
+        [HttpPut("{id}")]
+        public void Put(int id, [FromBody] string value)
+        {
+        }
+
+        // DELETE api/values/5
+        [HttpDelete("{id}")]
+        public void Delete(int id)
+        {
+        }
+    }
+}
+*************************************************************************
+
+
+[CREATE Value.cs under DOMAIN PROJECT] AND PASTE CODE BELOW
+
+*************************************************************************
+using System;
+
+namespace Domain
+{
+    public class Value
+    {
+        public int Id {get; set;}
+        public string Name {get; set;}
+    }
+}
+*************************************************************************
+
+
+[CREATE DataContext.cs UNDER PERSISTENCE PROJECT AND PASTE BELOW]
+
+*************************************************************************
+using System;
+using Domain;
+using Microsoft.EntityFrameworkCore;
+
+namespace Persistence
+{
+    public class DataContext : DbContext
+    {
+        public DataContext(DbContextOptions options) : base(options)
+        {
+        }
+
+        public DbSet<Value> Values {get; set;}
+    }
+}
+*************************************************************************
+
+THEN
+[Go to nuget package manager]
+
+[TYPE OR LOOK FOR]
+Microsoft.EntityFrameworkCore
+[CHOOSE]
+Microsoft.EntityFrameworkCore 
+[CHOOSE VERSION 3.1]
+[ADD IT TO THE PERSISTENCE PROJECT]
+
+[TYPE OR LOOK FOR]
+Microsoft.EntityFrameworkCore
+[CHOOSE]
+Microsoft.EntityFrameworkCore.Sqlite
+[CHOOSE VERSION 3.1]
+[ADD IT TO THE PERSISTENCE PROJECT]
+
+
+[GO TO Startup.cs add connection string by replacing 
+public void configurationServices]
+
+[with CODE BELOW]
+
+*************************************************************************
+        public void ConfigureServices(IServiceCollection services)
+        {
+            services.AddDbContext<DataContext>(opt =>
+            {
+               opt.UseSqlite(Configuration.GetConnectionString("DefaultConnection"));
+            });
+            services.AddControllers();
+        }
+*************************************************************************
+[AND ADD]
+using Persistence;
+using Microsoft.EntityFrameworkCore;
+
+[THEN SPECIFY A CONNECTION FOR CONNECTION STRING IN API PROJECT > appsettings.json]
+
+[ADD]
+
+"ConnectionStrings": {
+	"DefaultConnection": "Data source=reactdotnet.db"
+},
+
+[MAKE SURE TO CHANGE THE DB NAME]
+
+
+[NOW WE NEED TO CREATE A NEW MIGRATION TO USE TO SCAFFOLD DB]
+[NOW GO TO TERMNAL MAKE SURE APPLICATION IS NOT RUNNING]
+[THEN INSTALL THE ENTITY FRAMEWORK COMMAND LINE TOOL IF NOT YET INSTALL]
+
+[TO INSTALL ENTITY FRAMEWORK, IN TERMINAL OR GIT BASH TYPE]
+dotnet tool install --global dotnet-ef
+
+[TO BRING OUT THE HELP COMMAND FOR EF IN GIT BASH]
+dotnet ef
+
+
+[THEN RUN .NET MIGRATION BY TYPING]
+dotnet ef migrations add InitialCreate -p Persistence/ -s API/
+
+[SO -p Persistence TELLS WHERE OUR DATA CONTEXT IS & -s API TO LET WHERE OUR STARTUP PROJ IS WHICH CONTAINS 
+OUR CONNECTION STRING]
+
+[AN ERROR WILL BE SHOWN]
+Your startup project 'API' doesn't reference Microsoft.EntityFrameworkCore.Design. 
+This package is required for the Entity Framework Core Tools to work. 
+Ensure your startup project is correct, install the package, and try again.
+
+[TO SOLVE IT GO TO NUGET PACKAGE MANAGER AND INSTALL
+Microsoft.EntityFrameworkCore.Design.
+]
+[CHOOSE VERSION 3.1]
+[INSTALL TO API PROJECT]
+
+[NOW RE RUN THE CODE IN GITBASH]
+dotnet ef migrations add InitialCreate -p Persistence/ -s API/
+
+[IT SHOULD NOW CREATE THE MIGRATIONS FOLDER UNDER Persistence project.]
+
+
+
+
+[NOW LETS CREATE THE DATABASE]
+
+
+

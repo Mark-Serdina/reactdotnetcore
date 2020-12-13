@@ -1,0 +1,398 @@
+********************************************************************
+CREATE PROJECT SOLUTION FOLDER
+#create folder under inetpub
+#cd into folder
+mkdir Reactivities
+
+#--to list dotnet commands
+dotnet -h
+
+#--to list different project types
+dotnet new -h
+
+#create solution template file
+cd Reactivities
+dotnet new sln
+
+#--to list files
+#--mac 
+sl
+#--windows 
+dir
+
+********************************************************************
+CREATE DOTNET SOLUTIONS USING CLI
+#create classlib Domain folder inside Reactivities
+dotnet new classlib -n Domain
+
+cd Domain
+cd ..
+
+#create classlib Application folder inside Reactivities
+dotnet new classlib -n Application
+
+cd Application
+cd ..
+
+#create classlib Persistence folder inside Reactivities
+dotnet new classlib -n Persistence 
+
+cd Persistence 
+cd ..
+
+#create webapi API folder inside Reactivities
+dotnet new webapi -n API 
+
+cd API
+cd ..
+
+dir
+
+
+#cd into Reactivities
+cd Reactivities
+#open vs code
+code .
+
+##############################################
+#delete the file under API and /Controllers/
+WeatherForcastController.cs
+
+#Create file ValuesController.cs under Controllers
+
+
+********************************************************************
+RUNNING THE APPLICATION
+#Go to terminal in visual code
+cd Reactivities
+
+#run the project
+dotnet run -p API/
+
+Visit
+http://localhost:5000/api/values
+
+http://localhost:5000/api/values/5
+
+********************************************************************
+CREATING DOMAIN ENTITY
+#create a class called Value.cs under Domain folder
+
+#insert code inside public class value
+
+public int Id {get; set;} 
+public string Name {get; set;} 
+
+********************************************************************
+CREATING DBCONTECT & SERVICE
+#create a class called DataContext.cs under Persistence folder
+
+#Derived public class DataContext from entity framework called DbContext
+public class DataContext : DbContext
+{}
+
+
+#still no acccess to Entity Framework, so add entity framework using nuget
+
+********************************************************************
+ADDING ENTITY FRAMEWORK
+#using visual code
+CTRL + T
+#type
+>nug
+>nuget package manager
+
+#type and hit enter
+Microsoft.EntityFrameworkCore
+#Choose 3.1.3 version
+#Add it to {root}/PersistencePersisten.csproj
+
+
+#type and hit enter
+Microsoft.EntityFrameworkCore.Sqlite
+#Choose 3.1.3 version
+#Add it to {root}/PersistencePersisten.csproj
+
+#then run dotnet restore
+dotnet restore
+
+#create a constructor in DataContext.cs
+using System;
+using Microsoft.EntityFrameworkCore;
+
+namespace Persistence
+{
+    public class DataContext : DbContext
+    {
+        //Constructor that takes parameters
+        //Missing this will create problem with the migration
+        public DataContext(DbContextOptions options) : base(options)
+        {}
+
+        //Properties of DbSet
+        //Access the Value entity from Domain which is the Value.cs
+	//Values is the table names for the DB
+        public DbSet<Value> Values {get; set;}
+    }
+}
+
+********************************************************************
+ADD CONNECTION STRING
+
+#Add DbSet Value as a service in startup.cs in configure services method so that we can access it as a service
+#Add code below inside ConfigureServices method
+
+#code
+            services.AddDbContext<DataContext>(opt=>
+            {
+                opt.UseSqlite(Configuration.GetConnectionString("DefaultConnection"));
+            })
+
+#method
+        public void ConfigureServices(IServiceCollection services)
+        {
+            services.AddControllers();
+        }
+
+#Now specify a section for connection in appsettings.json
+#add code below
+  "ConnectionStrings": {
+    "DefaultConnection": "Data source=reactivities.db"
+  },
+
+#now that we have DataContext added to our services container
+********************************************************************
+ADDING OUR FIRST ENTITY FRAMEWORK CODE FIRST MIGRATION
+
+#create migration
+#go to terminal window and install dotnet entity framework command line if not comes with the dotnet framework version installed.
+#type to install it globally, available for any project
+dotnet tool install --global dotnet-ef
+
+#then check by typing
+dotnet ef
+
+#cd to Reactivities folder
+cd ..
+
+#Add Persistence and API migration to entity framework
+dotnet ef migrations add InitialCreate -p Persistence/ -s API/
+
+#an error will show to install Microsoft.EntityFrameworkCore.Design
+#now install Microsoft.EntityFrameworkCore.Design
+>nug
+Microsoft.EntityFrameworkCore.Design
+#press enter
+#choose and select 3.1.3
+#Add it to {root}/API/API.csproj
+
+#in terminal cd into Reactivities then run
+dotnet ef migrations add InitialCreate -p Persistence/ -s API/
+
+********************************************************************
+CREATE DATABASE
+
+#to see available CLI in entity framework
+#type in terminal
+dotnet ef -h
+
+#specify the application to update database everytime application starts
+
+#create host variable in Program.cs main method
+var host = CreateWebHostBuilder(args).Build();
+
+#like this below
+        public static void Main(string[] args)
+        {
+            var host = CreateHostBuilder(args).Build();
+            //CreateHostBuilder(args).Build().Run();
+        }
+
+#use dependency injection inside main method
+using (var scope = host.Services.CreateScope())
+{
+
+}
+
+#add using Microsoft.Extensions.DependencyInjection; in Program.cs
+
+#use try catch block to see if database not created then create it based on migrations
+            using (var scope = host.Services.CreateScope())
+            {
+                var services = scope.ServiceProvider;
+                try{
+                    var context = services.GetRequiredService<DataContext>();
+                    context.Database.Migrate();
+                }
+                catch(Exception ex)
+                {
+                    var logger = services.GetRequiredService<ILogger<Program>>();
+                    logger.LogError(ex, "An error occured during migration");
+                }
+            }
+
+#run the application, below the using statement
+#type and this will run the application
+host.Run();
+
+#to clear terminal
+clear
+
+#type in terminal to create db and run application
+#cd into API project
+dotnet watch run
+
+#this will now create db called ?.db in API project
+
+
+********************************************************************
+SEEDING DATA USING ENTITY FRAMEWORK
+
+#override a method that is available in DbContext and insert values into the Values table
+#insert below in DataContext.cs
+
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            builder.Entity<Value>()
+            .HasData
+            (
+                new Value {Id = 1, Name = "Value 101"},
+                new Value {Id = 2, Name = "Value 102"},
+                new Value {Id = 3, Name = "Value 103"}
+            );
+        }
+
+#go to terminal
+#End application
+CTLR + C
+#cd back to solutions folder
+cd ..
+#Add new migration called seed values migration
+dotnet ef migrations add SeedValues -p Persistence/ -s API/
+
+#cd into API solutions
+#run dotnet watch run to run application
+dotnet watch run
+
+#see data in values table in vs code
+CTLR + T
+>sql
+#open it
+#select the current db
+# now we have data in the DB to work with, so lets get this out of there
+
+********************************************************************
+USING DEPENDENCY INJECTION, TO ACCESS DATA FROM DB
+#inject datacontext into ValuesController so we have acces to DB
+
+        private readonly DataContext _context;
+
+        public ValuesController(DataContext context)
+        {
+            _context = context;
+
+        }
+
+#so now we have access to DataContext to our ValuesController
+
+#In ValuesController
+#replace this
+        // // GET api/values
+        // [HttpGet]
+        // public ActionResult<IEnumerable<string>> Get()
+        // {
+        //     return new string[] { "value1", "value2" };
+        // }
+
+#with this, to return values from DB asynchronously
+        // GET api/values
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<Value>>> Get()
+        {
+            var values = await _context.Values.ToListAsync();
+            return Ok(values);
+        }
+
+#and
+#replace this
+        // // GET api/values/5
+        // [HttpGet("{id}")]
+        // public ActionResult<string> Get(int id)
+        // {
+        //     return "value";
+        // }
+
+#with this, to return values by Id from DB asynchronously
+        // GET api/values/5
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Value>> Get(int id)
+        {
+            var value = await _context.Values.FindAsync(id);
+            return Ok(value);
+        }
+
+#now we can test this using postman to test API
+
+
+********************************************************************
+INTRODUCTION TO POSTMAN, TO TEST API
+
+#download postman
+#register using gmail acc
+#use postman
+#examples
+http://localhost:5000/api/values
+http://localhost:5000/api/values/3
+
+
+********************************************************************
+SAVING TO SOURCE CONTROL
+
+#Create new repo in github
+#cd into project folder
+#type in terminal
+git status
+#to initialise empty git
+git init
+
+
+#vs code
+go to settings
+#view settings in json
+#hide these files
+#by adding below
+   "files.exclude": {
+        "**/.git": true,
+        "**/.DS_Store": true,
+        "**/*.js": {"when": "$(basement).ts"},
+        "**/*.js.map": true,
+        "**/bin": true,
+        "**/obj": true
+    },
+
+#add .gitignore file in the project root folder to ignore file when pushing to source control
+
+#type inside .gitignore
+bin
+obj
+.vscode
+.DS_Store
+appsettings.json
+*.db
+
+#go to to terminal
+git add .
+git commit -m "intial commit"
+#go to github
+#create a repo
+#type in terminal in project folder
+git branch -M main
+git remote add origin https://github.com/Mark-Serdina/reactdotnetcore.git
+git push -u origin main
+
+
+#…or push an existing repository from the command line
+git remote add origin https://github.com/Mark-Serdina/reactdotnetcore.git
+git branch -M main
+git push -u origin main
+
